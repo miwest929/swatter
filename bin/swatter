@@ -5,33 +5,39 @@ def test_passed?(test_cmd)
   $?.success?
 end
 
-def found_bad_commit?(output)
+def good_commit?(output)
 # 4609b913eb9faf273fa084881ec9ee39c44d9376 is the first bad commit
-  !output.index("is the first bad commit").nil?
+  output.index("is the first bad commit").nil?
 end
 
-test_cmd = ARGV.join(' ')
-puts "Use this automated test: '#{test_cmd}'"
-`bundle exec #{test_cmd}`
-result = $?.success?
+if ARGV.empty?
+  puts "Usage: swatter <start-commit-sha-id> <command-to-run-failing-test>"
+  puts "Example: swatter 4609b913eb9faf273fa084881ec9ee39c44d9376 cucumber features/show.feature:11"
+else
+  start_commit = ARGV.shift
+  test_cmd = ARGV.join(' ')
+  puts "Use this automated test: '#{test_cmd}'"
+  `bundle exec #{test_cmd}`
+  result = $?.success?
 
-puts "Test has #{result ? 'passed' : 'failed'}."
+  puts "Test has #{result ? 'passed' : 'failed'}."
 
-# First find a commit where test passes
-last_good_commit = "62b8b846c3633c83fb44fbc10262c15869ba3d18"
-`git bisect start`
-`git bisect good #{last_good_commit}`
-`git bisect bad HEAD`
+  # First find a commit where test passes
+  last_good_commit = "62b8b846c3633c83fb44fbc10262c15869ba3d18"
+  `git bisect start`
+  `git bisect good #{last_good_commit}`
+  `git bisect bad HEAD`
 
-output = ""
-while !found_bad_commit?(output) do
-  output = if test_passed?(test_cmd)
-    `git bisect good`
-  else
-    `git bisect bad`
+  output = ""
+  while good_commit?(output) do
+    output = if test_passed?(test_cmd)
+      `git bisect good`
+    else
+      `git bisect bad`
+    end
+
+    puts output
   end
 
-  puts output
+  `git bisect reset`
 end
-
-`git bisect reset`
