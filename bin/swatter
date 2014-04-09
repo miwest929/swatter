@@ -16,28 +16,28 @@ if ARGV.empty?
 else
   start_commit = ARGV.shift
   test_cmd = ARGV.join(' ')
+  puts "Starting git bisect at this commit: #{start_commit}"
   puts "Use this automated test: '#{test_cmd}'"
   `bundle exec #{test_cmd}`
   result = $?.success?
 
-  puts "Test has #{result ? 'passed' : 'failed'}."
+  if !result
+    `git bisect start`
+    `git bisect good #{start_commit}`
+    `git bisect bad HEAD`
 
-  # First find a commit where test passes
-  last_good_commit = "62b8b846c3633c83fb44fbc10262c15869ba3d18"
-  `git bisect start`
-  `git bisect good #{last_good_commit}`
-  `git bisect bad HEAD`
+    output = ""
+    while good_commit?(output) do
+      output = if test_passed?(test_cmd)
+        `git bisect good`
+      else
+        `git bisect bad`
+      end
 
-  output = ""
-  while good_commit?(output) do
-    output = if test_passed?(test_cmd)
-      `git bisect good`
-    else
-      `git bisect bad`
+      puts output
     end
-
-    puts output
+    `git bisect reset`
+  else
+    puts "Specified test: #{test_cmd}, at commit: #{start_commit} passes. Nothing to do."
   end
-
-  `git bisect reset`
 end
